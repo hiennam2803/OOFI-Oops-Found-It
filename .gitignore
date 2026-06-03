@@ -1,0 +1,25 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+
+# Build
+build/
+dist/
+*.egg-info/
