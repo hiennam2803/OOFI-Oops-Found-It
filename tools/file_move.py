@@ -1,14 +1,27 @@
+"""
+tools/file_move.py
+Di chuyển file hoặc thư mục với shutil.move.
+Tự động xử lý trùng tên và kiểm tra đường dẫn hợp lệ.
+"""
+
 import os
-import subprocess
+import shutil
 from pathlib import Path
+
 
 def move_file(src: str, dst: str) -> str:
     """
-    Di chuyển file/folder với tốc độ bàn thờ bằng cách gọi thẳng Robocopy của Windows.
-    Chấp cả file nặng vài chục GB xuyên ổ đĩa!
+    Di chuyển file hoặc thư mục đến vị trí mới.
+
+    Args:
+        src: Đường dẫn nguồn (file hoặc thư mục).
+        dst: Đường dẫn thư mục đích hoặc file đích mới.
+
+    Returns:
+        Thông báo kết quả.
     """
     if not src or not dst:
-        return "❌ Đưa thiếu đường dẫn đi và đến rồi, đưa đủ đây tao bốc vác cho chiến thần!"
+        return "❌ Vui lòng cung cấp đường dẫn nguồn và đích."
 
     username = os.getenv("USERNAME") or os.getenv("USER") or ""
     src = src.replace("[username]", username).replace("{username}", username).strip().strip("'\"")
@@ -18,52 +31,32 @@ def move_file(src: str, dst: str) -> str:
     dst_path = Path(dst)
 
     if not src_path.exists():
-        return f"❌ Đối tượng gốc đéo tồn tại để mà di chuyển: {src}"
+        return f"❌ Nguồn không tồn tại: {src}"
 
-    # Chuẩn hóa đường dẫn đích
+    # Xác định đường dẫn đích cuối cùng
     if dst_path.is_dir() or dst.endswith("/") or dst.endswith("\\"):
-        dst_path.mkdir(exist_ok=True, parents=True)
-        final_dst_dir = dst_path
-        file_name = src_path.name if src_path.is_file() else ""
+        dst_path.mkdir(parents=True, exist_ok=True)
+        final_dst = dst_path / src_path.name
     else:
-        dst_path.parent.mkdir(exist_ok=True, parents=True)
-        final_dst_dir = dst_path.parent
-        file_name = dst_path.name
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+        final_dst = dst_path
+
+    # Xử lý trùng tên
+    if final_dst.exists() and final_dst != src_path:
+        stem, suffix = final_dst.stem, final_dst.suffix
+        counter = 1
+        while final_dst.exists():
+            final_dst = final_dst.parent / f"{stem}_moved{counter}{suffix}"
+            counter  += 1
 
     try:
-        # TRƯỜNG HỢP 1: DI CHUYỂN NGUYÊN CẢ FOLDER TRỌNG TẢI NẶNG
-        if src_path.is_dir():
-            # /MOVE: Di chuyển cả folder và xóa gốc
-            # /E: Gom hết folder con kể cả folder trống
-            # /MT:32: Mở 32 luồng CPU cùng bốc vác một lúc, tốc độ giật cục luôn!
-            cmd = f'robocopy "{src_path}" "{final_dst_dir}" /E /MOVE /MT:32 /R:1 /W:1'
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return f"🚚 [ROBOCOPY MULTI-THREAD]: Đã bốc vác nguyên thư mục '{src_path.name}' sang chỗ mới với tốc độ bàn thờ!\n➔ Đến: {final_dst_dir}"
-
-        # TRƯỜNG HỢP 2: DI CHUYỂN FILE LẺ
-        else:
-            # Nếu trùng tên ở chỗ mới -> Đổi tên an toàn chứ không cho đè chết file cũ
-            check_dst = final_dst_dir / (file_name or src_path.name)
-            if check_dst.exists():
-                stem = check_dst.stem
-                suffix = check_dst.suffix
-                counter = 1
-                while check_dst.exists():
-                    file_name = f"{stem}_moved_copy{counter}{suffix}"
-                    check_dst = final_dst_dir / file_name
-                    counter += 1
-            else:
-                file_name = file_name or src_path.name
-
-            # Robocopy di chuyển file lẻ: gốc_dir đích_dir file_name /MOV
-            cmd = f'robocopy "{src_path.parent}" "{final_dst_dir}" "{src_path.name}" /MOV /MOV /R:1 /W:1'
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-            # Nếu mày muốn đổi tên file lẻ lúc di chuyển sang chỗ mới
-            if file_name != src_path.name:
-                os.rename(str(final_dst_dir / src_path.name), str(final_dst_dir / file_name))
-
-            return f"🚚 [ROBOCOPY NITRO]: Đã sút file '{file_name}' sang chỗ mới xuyên ổ đĩa trong chớp mắt!\n➔ Đến: {final_dst_dir / file_name}"
-
+        shutil.move(str(src_path), str(final_dst))
+        return (
+            f"🚚 Di chuyển thành công.\n"
+            f"  Nguồn : {src}\n"
+            f"  Đích  : {final_dst}"
+        )
+    except PermissionError:
+        return f"❌ Không có quyền di chuyển: {src}"
     except Exception as e:
-        return f"❌ Định bật Nitro Robocopy nhưng bị vấp cỏ chấn thương vai: {e}"
+        return f"❌ Lỗi khi di chuyển: {e}"

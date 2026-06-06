@@ -1,17 +1,28 @@
+"""
+tools/file_copy.py
+Sao chép file với shutil.copy2 (giữ nguyên metadata gốc).
+"""
+
 import os
 import shutil
 from pathlib import Path
 
+
 def copy_file(src: str, dst: str) -> str:
     """
-    Sao chép file siêu tốc độ, giữ nguyên meta-data gốc.
-    src: Đường dẫn file gốc cần sao chép.
-    dst: Đường dẫn thư mục đích hoặc file đích mới.
+    Sao chép file đến thư mục hoặc đường dẫn đích.
+    Tự động xử lý trùng tên bằng cách thêm hậu tố _copy{n}.
+
+    Args:
+        src: Đường dẫn file nguồn.
+        dst: Đường dẫn thư mục đích hoặc file đích.
+
+    Returns:
+        Thông báo kết quả.
     """
     if not src or not dst:
-        return "❌ Thiếu đường dẫn gốc hoặc đích rồi chiến thần ơi, đưa đủ đây tao copy cho!"
+        return "❌ Vui lòng cung cấp đường dẫn nguồn và đích."
 
-    # Khử mấy cái placeholder tào lao của AI nếu có
     username = os.getenv("USERNAME") or os.getenv("USER") or ""
     src = src.replace("[username]", username).replace("{username}", username).strip().strip("'\"")
     dst = dst.replace("[username]", username).replace("{username}", username).strip().strip("'\"")
@@ -20,33 +31,34 @@ def copy_file(src: str, dst: str) -> str:
     dst_path = Path(dst)
 
     if not src_path.exists():
-        return f"❌ File gốc không tồn tại thì sao chép kiểu gì mày: {src}"
+        return f"❌ File nguồn không tồn tại: {src}"
     if not src_path.is_file():
-        return f"❌ Tool này chỉ chơi hệ sao chép file lẻ thôi, không chơi cả folder nha chiến thần: {src}"
+        return "❌ Chỉ hỗ trợ sao chép file đơn lẻ, không hỗ trợ thư mục."
 
-    # Nếu dst là một thư mục (ví dụ: C:/Users/ASUS/Desktop) -> tự đắp tên file gốc vào
+    # Xác định đường dẫn đích cuối cùng
     if dst_path.is_dir() or dst.endswith("/") or dst.endswith("\\"):
-        dst_path.mkdir(exist_ok=True, parents=True)
+        dst_path.mkdir(parents=True, exist_ok=True)
         final_dst = dst_path / src_path.name
     else:
-        # Nếu dst là một đường dẫn file đầy đủ mới (ví dụ: D:/Target/FileNew.pdf)
-        dst_path.parent.mkdir(exist_ok=True, parents=True)
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
         final_dst = dst_path
 
-    # Xử lý trùng tên: Nếu file đích đã có sẵn -> Đắp thêm hậu tố copy để không ghi đè mất file cũ
+    # Xử lý trùng tên
     if final_dst.exists():
-        stem = final_dst.stem
-        suffix = final_dst.suffix
+        stem, suffix = final_dst.stem, final_dst.suffix
         counter = 1
         while final_dst.exists():
             final_dst = final_dst.parent / f"{stem}_copy{counter}{suffix}"
-            counter += 1
+            counter  += 1
 
     try:
-        # Nện lệnh sao chép hệ bàn thờ
         shutil.copy2(str(src_path), str(final_dst))
-        return f"📋 Sao chép file thành công rực rỡ với tốc độ bàn thờ!\n➔ Từ: {src}\n➔ Đến: {final_dst}\nCái này mà sai là đi luôn, nhìn mượt vờ cờ lờ đúng không mày!"
+        return (
+            f"📋 Sao chép thành công.\n"
+            f"  Nguồn : {src}\n"
+            f"  Đích  : {final_dst}"
+        )
     except PermissionError:
-        return f"❌ Không có quyền sao chép file này rồi: {src} (File bị khóa hoặc folder đích cấm ghi)"
+        return f"❌ Không có quyền truy cập: {src}"
     except Exception as e:
-        return f"❌ Đang copy thì vấp cỏ chấn thương vai: {e}"
+        return f"❌ Lỗi khi sao chép: {e}"

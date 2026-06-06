@@ -1,123 +1,145 @@
+"""
+tools/file_search.py
+Tìm kiếm file với tốc độ tối ưu bằng os.scandir + cache + fuzzy match.
+"""
+
 import os
 import fnmatch
 import time
 from pathlib import Path
 from datetime import datetime
 
-# Danh sách folder rác hệ thống chặn quét để đỡ tốn sức RAM
+
+# Thư mục hệ thống bỏ qua khi quét để tăng tốc
 IGNORE_FOLDERS = {
     "appdata", "node_modules", ".git", "__pycache__",
     "venv", ".venv", "env", "ntuser", "$recycle.bin",
     "windows", "system32", "program files", "program files (x86)",
 }
 
-# BỘ NHỚ ĐỆM CHIẾN THẦN (CACHE)
-# Lưu cấu trúc: {(folder, pattern, max_depth): (timestamp, results_list)}
-_SEARCH_CACHE = {}
-CACHE_TTL = 15  # Hết hạn sau 15 giây. Trong 15s này gõ lại lệnh là ra kết quả trong 0 giây!
+# Bộ nhớ đệm: {(folder, pattern, max_depth): (timestamp, results)}
+_SEARCH_CACHE: dict = {}
+CACHE_TTL = 15  # Giây
+
 
 def _smart_pattern(pattern: str) -> str:
-    """Tự động chuyển thành fuzzy match nếu user gõ thiếu."""
+    """
+    Chuyển đổi pattern thành fuzzy match nếu người dùng
+    không nhập đuôi file hoặc ký tự wildcard.
+    Ví dụ: 'báo cáo' → '*báo cáo*'
+    """
     pattern = pattern.strip().strip("'\"")
     if "." not in pattern and "*" not in pattern:
         return f"*{pattern}*"
     return pattern
 
-def _fast_scan(base_path: Path, pattern: str, max_depth: int) -> list[str]:
-    """Thuật toán dùng os.scandir tăng tốc độ cào cấu ổ cứng gấp 5 lần os.walk"""
+
+def _scan(base_path: Path, pattern: str, max_depth: int) -> list[str]:
+    """
+    Quét thư mục bằng os.scandir (nhanh hơn os.walk ~5x).
+    Dùng hàng đợi BFS để kiểm soát độ sâu chính xác.
+    """
     results = []
-    base_depth = len(base_path.parts)
-    
-    # Dùng hàng đợi (Queue) để tự duyệt cây thư mục theo độ sâu, tối ưu hơn os.walk
-    queue = [(base_path, 0)]
-    
+    queue   = [(base_path, 0)]
+
     while queue:
-        current_dir, current_depth = queue.pop(0)
-        
-        # Chốt chặn độ sâu tối đa
-        if current_depth >= max_depth:
+        current_dir, depth = queue.pop(0)
+        if depth >= max_depth:
             continue
-            
+
         try:
-            # os.scandir trả về các DirEntry, húp thông tin cực nhanh không tốn RAM
             with os.scandir(current_dir) as entries:
                 for entry in entries:
                     name_lower = entry.name.lower()
-                    
-                    # Bộ lọc folder rác + folder ẩn ẩn hiện hiện
-                    if entry.is_dir():
-                        if name_lower not in IGNORE_FOLDERS and not entry.name.startswith("."):
-                            queue.append((Path(entry.path), current_depth + 1))
-                            
-                    # Khớp file thì bốc thông tin luôn
-                    elif entry.is_file():
+                    if entry.is_dir(follow_symlinks=False):
+                        if (
+                            name_lower not in IGNORE_FOLDERS
+                            and not entry.name.startswith(".")
+                        ):
+                            queue.append((Path(entry.path), depth + 1))
+
+                    elif entry.is_file(follow_symlinks=False):
                         if fnmatch.fnmatch(name_lower, pattern.lower()):
                             try:
-                                stat = entry.stat()
-                                size_kb = stat.st_size / 1024
-                                modified = datetime.fromtimestamp(stat.st_mtime).strftime("%d/%m/%Y %H:%M")
+                                stat     = entry.stat()
+                                size_kb  = stat.st_size / 1024
+                                modified = datetime.fromtimestamp(
+                                    stat.st_mtime
+                                ).strftime("%d/%m/%Y %H:%M")
                                 size_str = (
                                     f"{size_kb:.1f} KB"
                                     if size_kb < 1024
                                     else f"{size_kb / 1024:.1f} MB"
                                 )
-                                results.append(f"📄 {entry.path}  [{size_str}]  Sửa: {modified}")
+                                results.append(
+                                    f"📄 {entry.path}  [{size_str}]  Sửa: {modified}"
+                                )
                             except (PermissionError, FileNotFoundError):
                                 continue
-                                
         except (PermissionError, FileNotFoundError):
-            continue  # Gặp folder cấm là quay xe ngay
-            
+            continue
+
     return results
+
 
 def search_files(pattern: str, folder: str = "", max_depth: int = 3) -> str:
     """
-    Tìm file hệ chiến thần siêu tốc độ.
-    Tự động ăn Cache nếu tìm lại câu lệnh cũ trong vòng 15 giây.
+    Tìm file theo pattern trong thư mục chỉ định.
+
+    Args:
+        pattern  : Pattern tìm kiếm. Ví dụ: *.pdf, report*, báo cáo
+        folder   : Đường dẫn thư mục. Mặc định: thư mục Home
+        max_depth: Độ sâu quét tối đa. Mặc định: 3 tầng
+
+    Returns:
+        Chuỗi kết quả danh sách file tìm thấy.
     """
-    t_start = time.time() # Bấm giờ xem chạy mất bao nhiêu mili-giây
-    
+    t_start  = time.time()
+
     if not folder:
         folder = str(Path.home())
 
     username = os.getenv("USERNAME") or os.getenv("USER") or ""
-    folder = folder.replace("[username]", username).replace("[YourUsername]", username)
-    folder = folder.strip().strip("'\"")
-    pattern = _smart_pattern(pattern)
+    folder   = folder.replace("[username]", username).replace("[YourUsername]", username)
+    folder   = folder.strip().strip("'\"")
+    pattern  = _smart_pattern(pattern)
 
     if not os.path.exists(folder):
         return f"❌ Thư mục không tồn tại: {folder}"
 
     base_path = Path(folder)
     cache_key = (str(base_path), pattern, max_depth)
-    now = time.time()
+    now       = time.time()
 
-    # KIỂM TRA BỘ NHỚ ĐỆM (CACHE HIT)
+    # Kiểm tra cache
     if cache_key in _SEARCH_CACHE:
-        cache_time, cached_results = _SEARCH_CACHE[cache_key]
+        cache_time, cached = _SEARCH_CACHE[cache_key]
         if now - cache_time < CACHE_TTL:
-            t_delta = (time.time() - t_start) * 1000
-            total = len(cached_results)
-            output = f"⚡ [CACHE ULTIMATE] Tìm thấy {total} file ({t_delta:.1f} ms):\n" + "\n".join(cached_results[:20])
+            elapsed = (time.time() - t_start) * 1000
+            total   = len(cached)
+            output  = f"⚡ [Cache] Tìm thấy {total} file ({elapsed:.0f}ms):\n" + "\n".join(cached[:20])
             if total > 20:
                 output += f"\n\n... và {total - 20} file khác"
             return output
 
-    # CHẠY QUÉT THẬT BẰNG ĐỘNG CƠ TURBO OS.SCANDIR
+    # Quét thật
     try:
-        results = _fast_scan(base_path, pattern, max_depth)
+        results = _scan(base_path, pattern, max_depth)
     except Exception as e:
-        return f"❌ Lỗi: {e}"
+        return f"❌ Lỗi khi quét: {e}"
 
-    # Ghi lại vào Cache để lần sau húp cho mượt
+    # Lưu cache
     _SEARCH_CACHE[cache_key] = (now, results)
 
     if not results:
-        return f"🔍 Không tìm thấy '{pattern}' trong '{folder}' (sâu {max_depth} tầng)."
+        return (
+            f"🔍 Không tìm thấy '{pattern}' "
+            f"trong '{folder}' (độ sâu {max_depth} tầng)."
+        )
 
-    t_delta = (time.time() - t_start) * 1000
-    total = len(results)
-    output = f"✅ [TURBO SCAN] Tìm thấy {total} file ({t_delta:.1f} ms):\n" + "\n".join(results[:20])
+    elapsed = (time.time() - t_start) * 1000
+    total   = len(results)
+    output  = f"✅ Tìm thấy {total} file ({elapsed:.0f}ms):\n" + "\n".join(results[:20])
     if total > 20:
         output += f"\n\n... và {total - 20} file khác"
     return output

@@ -1,5 +1,3 @@
-# core/dispatcher.py
-
 import json
 import os
 from pathlib import Path
@@ -94,7 +92,6 @@ def dispatch(parsed: dict, user_blacklist: list = []) -> dict:
                 }
 
     # Lớp 2 — CỨU NGHẼN CHO BẢN TEST TERMINAL NÈ MÀY!
-    # Nếu chạy trên terminal mà gặp tool nguy hiểm và chưa confirm -> hỏi trực tiếp luôn!
     if tool in DESTRUCTIVE_TOOLS and not confirm:
         print(f"\n⚠️  [OOFI CẢNH BÁO]: Lệnh này có thể thay đổi ổ cứng của mày!")
         print(f"➔ Hành động: {message or tool}")
@@ -107,11 +104,11 @@ def dispatch(parsed: dict, user_blacklist: list = []) -> dict:
                 "result": "🛑 Chiến thần đã hủy lệnh, an toàn là trên hết mày ơi!"
             }
 
-    # Đã vượt qua kiểm tra hoặc đồng ý chạy -> Nện luôn!
-    return _run_tool(tool, params)
+    # Đã vượt qua kiểm tra hoặc đồng ý chạy -> Nện luôn! (Bơm thêm message vào đuôi)
+    return _run_tool(tool, params, message)
 
 
-def _run_tool(tool: str, params: dict) -> dict:
+def _run_tool(tool: str, params: dict, message: str = "") -> dict:
     """Import và gọi tool tương ứng chạy thật dưới ổ cứng."""
     try:
         if tool == "search_files":
@@ -120,7 +117,23 @@ def _run_tool(tool: str, params: dict) -> dict:
 
         elif tool == "rename_file":
             from tools.file_rename import rename_file
-            result = rename_file(**params)
+            
+            # Bốc đường dẫn cũ
+            path_val = params.get("path") or params.get("file_path") or params.get("src")
+            
+            # 1. Thử bốc tên mới trong params trước như bình thường
+            new_name_val = params.get("new_name") or params.get("new") or params.get("target_name") or params.get("name")
+            
+            # 2. 🚨 QUẢ KÈO SIÊU CHIẾN THẦN: Nếu AI ngáo đá đéo nhả new_name vào params nhưng lại viết ở message
+            if not new_name_val and message:
+                import re
+                # Dùng Regex hệ bàn thờ quét xem có chữ "thành [Tên_Mới]" hoặc "sang [Tên_Mới]" không
+                match = re.search(r'(?:thành|sang|to)\s+([^\s]+)', message, re.IGNORECASE)
+                if match:
+                    new_name_val = match.group(1).strip().strip("'\"`•.")
+            
+            # Vả thẳng vào hàm, chấp tất cả các thể loại AI lười biếng
+            result = rename_file(path=path_val, new_name=new_name_val)
 
         elif tool == "organize_files":
             from tools.file_organizer import organize_files
@@ -128,11 +141,17 @@ def _run_tool(tool: str, params: dict) -> dict:
 
         elif tool == "move_file":
             from tools.file_move import move_file
-            result = move_file(**params)
+            # Bọc lót khôn ngoan phòng hờ AI nhả key bậy bạ cho lệnh Di chuyển
+            src_val = params.get("src") or params.get("path") or params.get("source") or params.get("file_path")
+            dst_val = params.get("dst") or params.get("destination") or params.get("target") or params.get("to")
+            result = move_file(src=src_val, dst=dst_val)
 
         elif tool == "copy_file":
             from tools.file_copy import copy_file
-            result = copy_file(**params)
+            # Bọc lót khôn ngoan phòng hờ AI nhả key bậy bạ cho lệnh Sao chép
+            src_val = params.get("src") or params.get("path") or params.get("source") or params.get("file_path")
+            dst_val = params.get("dst") or params.get("destination") or params.get("target") or params.get("to")
+            result = copy_file(src=src_val, dst=dst_val)
 
         elif tool == "delete_file":
             from tools.file_delete import delete_file
@@ -140,8 +159,27 @@ def _run_tool(tool: str, params: dict) -> dict:
 
         elif tool == "create_file":
             from tools.file_create import create_file
-            result = create_file(**params)
-
+            
+            # Bốc đường dẫn file
+            path_val = params.get("path") or params.get("file_path")
+            
+            # 1. Thử bốc nội dung trong params trước như bình thường
+            content_val = params.get("content") or params.get("text") or params.get("data")
+            
+            # 2. 🚨 BIỆN PHÁP CHIẾN THẦN: Nếu AI lười biếng giấu nội dung ở message ngoài tai
+            if not content_val and message:
+                import re
+                # Quét xem có chữ "nội dung [Đoạn_Văn_Bản]" hoặc "chứa [Đoạn_Văn_Bản]" không
+                match = re.search(r'(?:nội\s+dung|với\s+nội\s+dung|chứa)\s+(.+)', message, re.IGNORECASE)
+                if match:
+                    content_val = match.group(1).strip().strip("'\"`•.")
+            
+            # Nếu cuối cùng vẫn đéo có gì thì mới cho bằng chuỗi rỗng
+            if not content_val:
+                content_val = ""
+                
+            # Vả thẳng vào hàm, chấp luôn mọi thể loại AI ngáo đá
+            result = create_file(path=path_val, content=content_val)
         elif tool == "file_info":
             from tools.file_info import file_info
             result = file_info(**params)
