@@ -4,7 +4,6 @@ import json
 import os
 from pathlib import Path
 
-
 # ── Blacklist hệ thống ────────────────────────────────────
 SYSTEM_BLACKLIST = [
     "c:\\windows",
@@ -46,11 +45,7 @@ def is_path_safe(target_path: str, user_blacklist: list = []) -> bool:
 
 
 def parse_response(response: str) -> dict:
-    """
-    Parse JSON từ response AI.
-    Xử lý các trường hợp AI trả về JSON không sạch.
-    """
-    # Xóa markdown nếu AI quên không tuân thủ
+    """Parse JSON từ response AI, dọn sạch rác markdown."""
     cleaned = response.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.split("```")[1]
@@ -61,7 +56,6 @@ def parse_response(response: str) -> dict:
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        # Tìm JSON trong text nếu AI thêm text thừa
         start = cleaned.find("{")
         end   = cleaned.rfind("}") + 1
         if start != -1 and end > start:
@@ -79,8 +73,7 @@ def parse_response(response: str) -> dict:
 
 def dispatch(parsed: dict, user_blacklist: list = []) -> dict:
     """
-    Nhận JSON đã parse → kiểm tra an toàn → gọi tool.
-    Trả về dict kết quả: {"success": bool, "result": str}
+    Nhận JSON đã parse → kiểm tra an toàn → hỏi confirm trên terminal nếu cần → gọi tool.
     """
     tool    = parsed.get("tool", "unknown")
     params  = parsed.get("params", {})
@@ -91,7 +84,7 @@ def dispatch(parsed: dict, user_blacklist: list = []) -> dict:
     if tool in ("unknown", "off_topic", "parse_error"):
         return {"success": False, "result": message}
 
-    # Lớp 1 — kiểm tra tất cả path trong params
+    # Lớp 1 — kiểm tra an toàn đường dẫn
     for key, value in params.items():
         if isinstance(value, str) and ("/" in value or "\\" in value):
             if not is_path_safe(value, user_blacklist):
@@ -100,22 +93,26 @@ def dispatch(parsed: dict, user_blacklist: list = []) -> dict:
                     "result":  f"❌ Đường dẫn bị chặn (vùng cấm): {value}"
                 }
 
-    # Lớp 2 — destructive tool cần confirm từ GUI
+    # Lớp 2 — CỨU NGHẼN CHO BẢN TEST TERMINAL NÈ MÀY!
+    # Nếu chạy trên terminal mà gặp tool nguy hiểm và chưa confirm -> hỏi trực tiếp luôn!
     if tool in DESTRUCTIVE_TOOLS and not confirm:
-        return {
-            "success":      False,
-            "need_confirm": True,
-            "tool":         tool,
-            "params":       params,
-            "result":       message,
-        }
+        print(f"\n⚠️  [OOFI CẢNH BÁO]: Lệnh này có thể thay đổi ổ cứng của mày!")
+        print(f"➔ Hành động: {message or tool}")
+        print(f"➔ Tham số: {params}")
+        user_choice = input("Mày có chắc chắn muốn nện lệnh này không? [y/N]: ").strip().lower()
+        
+        if user_choice not in ("y", "yes", "có"):
+            return {
+                "success": False,
+                "result": "🛑 Chiến thần đã hủy lệnh, an toàn là trên hết mày ơi!"
+            }
 
-    # Gọi tool
+    # Đã vượt qua kiểm tra hoặc đồng ý chạy -> Nện luôn!
     return _run_tool(tool, params)
 
 
 def _run_tool(tool: str, params: dict) -> dict:
-    """Import và gọi tool tương ứng."""
+    """Import và gọi tool tương ứng chạy thật dưới ổ cứng."""
     try:
         if tool == "search_files":
             from tools.file_search import search_files
@@ -175,6 +172,6 @@ def _run_tool(tool: str, params: dict) -> dict:
         return {"success": True, "result": result}
 
     except TypeError as e:
-        return {"success": False, "result": f"❌ Tham số sai: {e}"}
+        return {"success": False, "result": f"❌ Tham số sai cấu trúc: {e}"}
     except Exception as e:
-        return {"success": False, "result": f"❌ Lỗi: {e}"}
+        return {"success": False, "result": f"❌ Lỗi thực thi dưới nền: {e}"}

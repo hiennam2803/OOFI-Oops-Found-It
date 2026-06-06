@@ -58,9 +58,13 @@ def run():
 
     print(f"✅ Sẵn sàng! [{brain.get_label()}]")
     print("─" * 55)
-    print("💡 Thử:")
-    print("   • Tìm tất cả file PDF trong Downloads")
-    print("   • Tóm tắt file C:/Users/ASUS/Downloads/NHÓM 4_TRIỂN KHAI WEBSITE TRÊN CLOUD.pdf")
+    print("💡 THỬ NGHIỆM CHIẾN THẦN (CÁC CHỨC NĂNG MỚI):")
+    print("   • Tìm file:  'Tìm tất cả file PDF trong Downloads'")
+    print("   • Tóm tắt:   'Tóm tắt file C:/Users/ASUS/Downloads/Tài liệu.pdf'")
+    print("   • Dọn dẹp:   'Dọn dẹp folder C:/Users/ASUS/Downloads giùm tao'")
+    print("   • Xóa file:  'Xóa file C:/Users/ASUS/Downloads/rác.txt'")
+    print("   • Di chuyển: 'Di chuyển file C:/Users/ASUS/Downloads/ảnh.jpg ra Desktop'")
+    print("   • Sao chép:  'Copy file C:/Users/ASUS/Downloads/bài_tập.pdf sang Desktop'")
     print("─" * 55)
 
     while True:
@@ -82,20 +86,37 @@ def run():
             parsed = parse_response(raw)
             print(f"\n🔍 Parsed: {parsed}")
 
-            # Nếu AI phát hiện câu hỏi ngoài lề (off_topic), in câu trả lời ra luôn
+            # Nếu AI phát hiện câu hỏi ngoài lề hoặc đùa giỡn, in câu trả lời ra luôn
             if parsed.get("tool") == "off_topic" or parsed.get("tool") == "unknown":
                 print(f"\n🤖 OOFI: {parsed.get('message')}")
                 continue
 
-            # Bước 3 — Gửi cho Dispatcher gọi hàm Python chạy ngầm dưới ổ cứng
+            # Bước 3 — Gửi cho Dispatcher gọi hàm Python chạy dưới ổ cứng
+            print("\n⚙️  Hệ thống đang thực thi lệnh dưới nền...")
             result = dispatch(parsed)
 
-            # Bước 4 — Nếu là lệnh summarize_file và trích xuất text thành công
-            if parsed.get("tool") == "summarize_file" and result.get("success"):
+            # Bước 4 — Điều phối hiển thị kết quả theo từng Tool riêng biệt
+            current_tool = parsed.get("tool")
+
+            if current_tool == "summarize_file" and result.get("success"):
                 print("\n🤔 Đang tóm tắt văn bản...")
-                # GỌI ĐÚNG HÀM TÓM TẮT THUỒN TÚY KHÔNG JSON NÈ MÀY!
                 summary = brain.summarize(result["result"])
                 print(f"\n✅ Tóm tắt từ chiến thần:\n{summary}")
+                
+            elif current_tool == "organize_files":
+                print(f"\n🧹 Kết quả dọn dẹp:\n{result.get('result', '')}")
+                
+            elif current_tool == "delete_file":
+                print(f"\n🗑️ Kết quả xử lý file:\n{result.get('result', '')}")
+                
+            elif current_tool == "move_file":
+                # Thêm quả giao diện bốc vác xịn sò cho lệnh di chuyển
+                print(f"\n🚚 Kết quả di chuyển file:\n{result.get('result', '')}")
+                
+            elif current_tool == "copy_file":
+                # Thêm quả giao diện hệ sao chép cho giống người thật nói chuyện
+                print(f"\n📋 Kết quả sao chép file:\n{result.get('result', '')}")
+                
             else:
                 # Các tool khác hiển thị kết quả bình thường
                 print(f"\n✅ Kết quả:\n{result.get('result', '')}")
