@@ -42,6 +42,8 @@ QUY TẮC JSON BẮT BUỘC:
    {"tool": "unknown", "params": {}, "confirm": false, "message": "Lý do không hiểu lệnh"}
 5. Nếu câu hỏi không liên quan đến quản lý file:
    {"tool": "off_topic", "params": {}, "confirm": false, "message": "Xin lỗi, OOFI chỉ hỗ trợ quản lý file."}
+6. Nếu người dùng hỏi về khả năng, tính năng, hoặc cách dùng OOFI:
+   {"tool": "help", "params": {}, "confirm": false, "message": "Giới thiệu tính năng OOFI"}
 
 THAM SỐ CHI TIẾT TỪNG TOOL:
 - search_files    : pattern (bắt buộc), folder (mặc định Home), max_depth (mặc định 3)
@@ -79,8 +81,12 @@ User: "Tạo file notes.txt với nội dung Hello World"
 User: "Thủ đô Việt Nam là gì?"
 → {"tool": "off_topic", "params": {}, "confirm": false, "message": "Xin lỗi, OOFI chỉ hỗ trợ quản lý file."}
 
+User: "Bạn giúp được gì?" / "Mày là ai?" / "Hướng dẫn dùng" / "OOFI làm được gì?"
+→ {"tool": "help", "params": {}, "confirm": false, "message": ""}
+
 Trả lời bằng ngôn ngữ người dùng đang sử dụng (tiếng Việt hoặc tiếng Anh).
 """
+
 )
 
 

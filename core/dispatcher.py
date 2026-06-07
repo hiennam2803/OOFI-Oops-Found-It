@@ -279,5 +279,8 @@ def _dispatch_tool(tool: str, params: dict, message: str) -> str:
         from tools.summarizer import summarize_file
         return summarize_file(**params)
 
+    elif tool == "help":
+        return "__FREEFORM__"
+
     else:
         return f"❌ Tool không tồn tại: '{tool}'"
