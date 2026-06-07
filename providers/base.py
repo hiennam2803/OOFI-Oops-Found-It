@@ -1,30 +1,40 @@
-# providers/base.py
+"""
+providers/base.py
+Abstract base class cho tất cả AI provider.
+Local (Ollama), Groq, Gemini đều kế thừa từ đây.
+"""
 
 from abc import ABC, abstractmethod
 
 
 class BaseProvider(ABC):
     """
-    Lớp cha cho mọi AI provider.
-    Local (Ollama), Groq, Gemini đều kế thừa từ đây.
-    Mọi provider đều có chung 1 method duy nhất: chat()
+    Giao diện chung cho mọi AI provider.
+    Dispatcher chỉ cần gọi chat() mà không cần biết
+    provider cụ thể là gì (Local, Groq hay Gemini).
     """
 
     @abstractmethod
     def chat(self, prompt: str) -> str:
         """
-        Gửi prompt → nhận response dạng string.
-        Đây là method DUY NHẤT dispatcher cần gọi.
-        Không quan tâm provider là gì — gọi chat() là xong.
+        Gửi prompt và nhận response dạng string thuần túy.
+        Đây là method duy nhất dispatcher sử dụng.
         """
         pass
 
     @abstractmethod
     def is_available(self) -> bool:
-        """Kiểm tra provider có sẵn sàng không."""
+        """
+        Kiểm tra provider có sẵn sàng không.
+        Local: Ollama đang chạy và model đã tải.
+        Cloud: Có internet và API key hợp lệ.
+        """
         pass
 
     @abstractmethod
     def get_label(self) -> str:
-        """Tên hiển thị ở GUI."""
+        """
+        Nhãn hiển thị trên giao diện.
+        Ví dụ: '💻 Local · qwen2.5:3b · CPU'
+        """
         pass

@@ -1,4 +1,4 @@
-# core/__init__.py
+"""core/__init__.py"""
 
 from core.brain      import Brain
 from core.dispatcher import dispatch, parse_response, is_path_safe

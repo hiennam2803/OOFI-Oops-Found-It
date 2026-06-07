@@ -1,4 +1,7 @@
-# providers/__init__.py
+"""
+providers/__init__.py
+Factory function để tạo AI provider dựa trên settings.
+"""
 
 from providers.base   import BaseProvider
 from providers.local  import LocalProvider
@@ -8,8 +11,14 @@ from providers.gemini import GeminiProvider
 
 def create_provider(settings: dict) -> BaseProvider:
     """
-    Factory — tạo đúng provider theo settings.
-    Hàm DUY NHẤT cần gọi từ bên ngoài thư mục providers/.
+    Tạo đúng provider dựa trên cấu hình settings.
+    Đây là hàm duy nhất cần gọi từ bên ngoài thư mục providers/.
+
+    Args:
+        settings: Dict cấu hình từ load_settings().
+
+    Returns:
+        Instance của LocalProvider, GroqProvider hoặc GeminiProvider.
     """
     mode = settings.get("mode", "local")
 
