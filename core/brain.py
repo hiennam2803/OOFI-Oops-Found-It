@@ -51,32 +51,19 @@ class Brain:
 
     def summarize(self, content: str) -> str:
         """
-        Tóm tắt nội dung văn bản với system prompt riêng biệt.
-        Tách khỏi think() để tránh model trả về JSON thay vì văn xuôi.
-
-        Args:
-            content: Đoạn text cần tóm tắt.
-
-        Returns:
-            Bản tóm tắt 3-5 câu bằng ngôn ngữ tự nhiên.
+        Tóm tắt văn bản dài. Dùng riêng cho summarize_file.
+        Ép AI trả về 2-3 câu ngắn.
         """
         system = (
-            "Bạn là trợ lý tóm tắt tài liệu. "
-            "Nhiệm vụ duy nhất: viết bản tóm tắt 3-5 câu bằng tiếng Việt, "
-            "ngắn gọn và súc tích. "
-            "Bắt đầu bằng 'Đây là tài liệu về...'. "
-            "Tuyệt đối không trả về JSON hay bất kỳ định dạng có cấu trúc nào. "
-            "Chỉ viết văn xuôi thuần túy."
+            "Bạn chỉ viết tóm tắt tối đa 3 câu, mỗi câu dưới 20 từ. "
+            "Nêu đúng ý chính khái quát, không chi tiết, không liệt kê. "
+            "Kết quả là một đoạn văn xuôi ngắn."
         )
-        user = f"Tóm tắt nội dung sau:\n\n{content}"
-
+        user = f"Tóm tắt:\n{content[:2500]}"
         mode = self.settings.get("mode", "local")
         if mode == "local":
-            # Dùng /api/chat với system prompt tách biệt
-            # để model không bị ảnh hưởng bởi JSON system prompt mặc định
             return self.provider.chat_raw(system, user)
         else:
-            # Cloud providers: gộp system và user vào một prompt rõ ràng
             return self.provider.chat(f"{system}\n\n{user}")
 
     def is_ready(self) -> tuple[bool, str]:

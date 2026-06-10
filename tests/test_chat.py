@@ -1,6 +1,7 @@
 import sys
 import os
 from pathlib import Path
+from unittest import result
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core        import Brain, dispatch, parse_response
@@ -19,7 +20,7 @@ def setup():
         print("  1. Local  (Ollama)")
         print("  2. Groq   (Cloud)")
         print("  3. Gemini (Cloud)")
-        print("   Chọn [1/2/3, mặc định 1]: ").strip() or "1"
+        choice = input("   Chọn [1/2/3, mặc định 1]: ").strip() or "1"
 
         if choice == "2":
             key = input("Groq API Key (gsk_...): ").strip()
@@ -83,24 +84,29 @@ def run():
                 break
 
             print("\n🤔 Đang xử lý...")
-
-            # Bước 1 — AI suy nghĩ nhả JSON để gọi Tool
             raw = brain.think(user_input)
             print(f"\n📦 JSON từ AI:\n{raw}")
 
-            # Bước 2 — Parse JSON thành dict
             parsed = parse_response(raw)
             print(f"\n🔍 Parsed: {parsed}")
 
-            # Nếu AI phát hiện câu hỏi ngoài lề hoặc đùa giỡn, in câu trả lời ra luôn
             if parsed.get("tool") in ("off_topic", "unknown", "parse_error"):
                 print(f"\n🤖 OOFI: {parsed.get('message')}")
                 continue
 
-            # Bước 3 — Gửi cho Dispatcher gọi hàm Python chạy dưới ổ cứng
             print("\n⚙️  Hệ thống đang thực thi lệnh dưới nền...")
-            result = dispatch(parsed)
+            confirmed = parsed.get("confirm", False)
+            result = dispatch(parsed, confirmed=confirmed)
 
+            # Nếu dispatch trả về need_confirm (trường hợp AI không gửi confirm nhưng tool destructive)
+            if not result.get("success") and result.get("need_confirm"):
+                print(f"\n⚠️ Tool {parsed.get('tool')} yêu cầu xác nhận.")
+                confirm_input = input("👉 Bạn có muốn thực thi? (y/N): ").strip().lower()
+                if confirm_input == 'y':
+                    result = dispatch(parsed, confirmed=True)
+                else:
+                    result = {"success": False, "result": "Đã huỷ lệnh."}
+            
             # Bước 4 — Điều phối hiển thị kết quả theo từng Tool riêng biệt (Full Giáp Chức Năng)
             current_tool = parsed.get("tool")
 
