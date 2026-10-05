@@ -1,0 +1,9 @@
+# Dependencies cho lớp web/desktop (UI). Giữ nguyên requirements hiện có
+# của bạn cho tools/ và providers/ (send2trash, psutil, requests, python-docx,
+# PyPDF2/pdfplumber, v.v.) — file này chỉ bổ sung phần mới.
+
+fastapi>=0.111
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pywebview>=5.1
+pyinstaller>=6.6

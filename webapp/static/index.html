@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OOFI — Oops, Found It!</title>
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Top bar ─────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+        <line x1="15.2" y1="15.2" x2="20.5" y2="20.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M7.5 10.7l2 2 3.8-4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-title">OOFI</span>
+        <span class="brand-sub">Oops, Found It!</span>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <button id="statusPill" class="status-pill" title="Trạng thái provider AI">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusLabel">Đang kiểm tra…</span>
+      </button>
+      <button id="helpBtn" class="icon-btn" title="Trợ giúp">?</button>
+      <button id="settingsBtn" class="icon-btn" title="Cài đặt">⚙</button>
+    </div>
+  </header>
+
+  <!-- ── Cảnh báo provider chưa sẵn sàng ─────────────────── -->
+  <div id="notReadyBanner" class="not-ready-banner hidden">
+    <pre id="notReadyText"></pre>
+  </div>
+
+  <!-- ── Khung chat ──────────────────────────────────────── -->
+  <main class="chat-area" id="chatArea"></main>
+
+  <!-- ── Ô nhập lệnh ─────────────────────────────────────── -->
+  <footer class="composer">
+    <textarea id="inputBox" rows="1" placeholder="Gõ lệnh… ví dụ: Tìm file báo cáo trong Documents"></textarea>
+    <button id="sendBtn" class="send-btn" title="Gửi">➤</button>
+  </footer>
+
+</div>
+
+<!-- ── Modal Settings ──────────────────────────────────────── -->
+<div id="settingsOverlay" class="overlay hidden">
+  <div class="settings-panel">
+    <div class="settings-header">
+      <h2>Cài đặt</h2>
+      <button id="closeSettingsBtn" class="icon-btn">✕</button>
+    </div>
+
+    <div class="settings-tabs">
+      <button class="tab-btn active" data-tab="provider">Provider AI</button>
+      <button class="tab-btn" data-tab="blacklist">Vùng bảo vệ</button>
+      <button class="tab-btn" data-tab="appearance">Giao diện</button>
+    </div>
+
+    <!-- Tab: Provider -->
+    <section class="tab-panel active" data-tab="provider">
+      <div class="field-group">
+        <label class="field-label">Chế độ AI</label>
+        <div class="radio-row">
+          <label class="radio-chip">
+            <input type="radio" name="mode" value="local" /> 💻 Local (offline)
+          </label>
+          <label class="radio-chip">
+            <input type="radio" name="mode" value="groq" /> ⚡ Groq
+          </label>
+          <label class="radio-chip">
+            <input type="radio" name="mode" value="gemini" /> 🧠 Gemini
+          </label>
+        </div>
+      </div>
+
+      <div id="localFields" class="field-group provider-fields">
+        <label class="field-label">Local tier <span class="hint" id="ramHint"></span></label>
+        <div id="tierOptions" class="tier-options"></div>
+      </div>
+
+      <div id="groqFields" class="field-group provider-fields">
+        <label class="field-label">Groq API Key</label>
+        <input type="password" id="groqApiKey" class="text-input" placeholder="gsk_..." />
+        <a class="signup-link" id="groqSignup" target="_blank" rel="noopener">Đăng ký API key miễn phí ↗</a>
+      </div>
+
+      <div id="geminiFields" class="field-group provider-fields">
+        <label class="field-label">Gemini API Key</label>
+        <input type="password" id="geminiApiKey" class="text-input" placeholder="AIza..." />
+        <a class="signup-link" id="geminiSignup" target="_blank" rel="noopener">Đăng ký API key miễn phí ↗</a>
+      </div>
+    </section>
+
+    <!-- Tab: Blacklist -->
+    <section class="tab-panel" data-tab="blacklist">
+      <p class="tab-desc">Các thư mục trong danh sách này sẽ luôn bị OOFI từ chối xóa/di chuyển/đổi tên, dù AI có gợi ý gì.</p>
+      <div class="blacklist-add">
+        <input type="text" id="blacklistInput" class="text-input" placeholder="Ví dụ: D:/Du an quan trong" />
+        <button id="addBlacklistBtn" class="secondary-btn">Thêm</button>
+      </div>
+      <ul id="blacklistList" class="blacklist-list"></ul>
+    </section>
+
+    <!-- Tab: Appearance -->
+    <section class="tab-panel" data-tab="appearance">
+      <div class="field-group">
+        <label class="field-label">Chủ đề</label>
+        <div class="radio-row">
+          <label class="radio-chip">
+            <input type="radio" name="theme" value="dark" /> 🌙 Tối
+          </label>
+          <label class="radio-chip">
+            <input type="radio" name="theme" value="light" /> ☀️ Sáng
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <div class="settings-footer">
+      <span id="settingsSaveStatus" class="save-status"></span>
+      <button id="saveSettingsBtn" class="primary-btn">Lưu thay đổi</button>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
